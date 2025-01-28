@@ -10,6 +10,7 @@
 // some functions based on code contributed by gemi254
 
 #include "appGlobals.h"
+#include "esp_mac.h"
 
 bool dbgVerbose = false;
 bool timeSynchronized = false;
@@ -64,6 +65,34 @@ bool usePing = true;
 
 static void startPing();
 static void printGpioInfo();
+
+void generateAPSSID() {
+  int randomNumber = random(1000, 9999);
+  String newSSID = "ESP32-";
+  newSSID += randomNumber;
+  strcpy(AP_SSID, newSSID.c_str());
+  Serial.print("새 AP SSID 생성: ");
+  Serial.println(AP_SSID);
+}
+
+void setAPSSIDwithMAC() {
+  // MAC 읽기
+  uint8_t mac[6];
+  esp_err_t ret = esp_efuse_mac_get_default(mac);  // 여기가 문제였으면 헤더 추가로 해결
+  if (ret != ESP_OK) {
+    // 에러 처리
+    Serial.println("Failed to read MAC address");
+    generateAPSSID();
+    return;
+  } else {
+    // MAC을 이용해 SSID 생성 예시
+    char macStr[5];  // 뒤 2바이트 -> 4자리 + null terminator
+    sprintf(macStr, "%02X%02X", mac[4], mac[5]);
+    String newSSID = String("ESP32-") + macStr;
+    strcpy(AP_SSID, newSSID.c_str());
+    return;
+  }
+}
 
 static void setupMdnsHost() {  
   // set up MDNS service 
@@ -182,6 +211,7 @@ static void setWifiSTA() {
 }
 
 bool startWifi(bool firstcall) {
+  setAPSSIDwithMAC();
   // start wifi station (and wifi AP if allowed or station not defined)
   if (firstcall) {
     WiFi.mode(WIFI_AP_STA);
